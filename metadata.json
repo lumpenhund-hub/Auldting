@@ -1,0 +1,6 @@
+{
+  "name": "Adulting – Schweizer Finanzspiel",
+  "description": "Ein interaktives Schweizer Finanzspiel mit Healthcare-Poker (Krankenkassenfranchise) und dem Steuer-Hack (Säule 3a).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
