@@ -115,6 +115,14 @@ const playChimeSound = (type: 'success' | 'click' | 'error' | 'win') => {
   }
 };
 
+const AVAILABLE_TOPICS = [
+  "Steuererklärung ausfüllen & kantonale Abzüge 📝",
+  "Mietvertrag, Mietkaution & Wohnungsabnahme 🏠",
+  "Hausrat- & Privathaftpflichtversicherung (Sinn vs. Unsinn) 🛡️",
+  "Schweizer BVG Pensionskasse & AHV-Rentenschätzung (Säulen 1 & 2) 📊",
+  "Optimales Monatsbudget (Ausgabe-Prioritäten & Notgroschen) 📈"
+];
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('map');
   
@@ -151,25 +159,17 @@ export default function App() {
   const [userEmail, setUserEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  // New feedback system states
+  const [helpsUnderstand, setHelpsUnderstand] = useState<'ja' | 'nein' | null>(null);
+  const [wantsMoreLevels, setWantsMoreLevels] = useState<'ja' | 'nein' | null>(null);
+  const [wouldRecommend, setWouldRecommend] = useState<'ja' | 'nein' | null>(null);
+  const [votedTopics, setVotedTopics] = useState<string[]>([]);
+  const [isCopied, setIsCopied] = useState(false);
+
   // Save game state
   useEffect(() => {
     localStorage.setItem('adulting_state_v1.2', JSON.stringify(gameState));
   }, [gameState]);
-
-  // Handle map scroll on progress trigger
-  useEffect(() => {
-    if (currentScreen === 'map' && mapScrollRef.current) {
-      setTimeout(() => {
-        if (gameState.gameProgress === 2) {
-          mapScrollRef.current?.scrollTo({ left: 190, behavior: 'smooth' });
-        } else if (gameState.gameProgress === 3) {
-          mapScrollRef.current?.scrollTo({ left: 380, behavior: 'smooth' });
-        } else {
-          mapScrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
-        }
-      }, 200);
-    }
-  }, [currentScreen, gameState.gameProgress]);
 
   const handleNav = (screen: GameScreen) => {
     playChimeSound('click');
@@ -376,8 +376,8 @@ export default function App() {
 
   const l1ResultStats = getL1SimulationResults();
   
-  // Tax savings progression (assumed average progressive Swiss source/income tax rates of ~20%)
-  const calculatedTaxSavingsL2 = gameState.selected3a ? Math.round(gameState.selected3a * 0.20) : 0;
+  // Tax savings progression (using a conservative Schweizer average Grenzsteuersatz of 15%)
+  const calculatedTaxSavingsL2 = gameState.selected3a ? Math.round(gameState.selected3a * 0.15) : 0;
 
   return (
     <div id="app-wrapper" className="min-h-screen bg-slate-900 font-sans text-slate-800 flex flex-col justify-center items-center p-4">
@@ -450,7 +450,7 @@ export default function App() {
                 <div 
                   id="map-scroll-container" 
                   ref={mapScrollRef}
-                  className="w-full overflow-x-auto overflow-y-hidden py-10 bg-gradient-to-b from-sky-50 to-neutral-100 border-b border-slate-200 relative custom-scrollbar flex items-center"
+                  className="w-full overflow-x-auto overflow-y-hidden py-10 bg-gradient-to-b from-sky-50 to-neutral-100 border-b border-slate-200 relative custom-scrollbar flex items-center snap-x snap-mandatory scroll-smooth"
                 >
                   <div className="w-[660px] h-40 relative px-8 flex items-center select-none">
                     
@@ -465,7 +465,7 @@ export default function App() {
                     </svg>
 
                     {/* STATION A: START POINT */}
-                    <div className="absolute left-6 bottom-10 text-center w-24 flex flex-col items-center">
+                    <div className="absolute left-6 bottom-10 text-center w-24 flex flex-col items-center snap-center">
                       <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-400 flex items-center justify-center text-[10px] font-black text-slate-600 shadow-sm">
                         START
                       </div>
@@ -473,7 +473,7 @@ export default function App() {
                     </div>
 
                     {/* STATION B: LEVEL 1 KRANKENKASSE */}
-                    <div className="absolute left-64 bottom-6 text-center w-28 flex flex-col items-center z-10">
+                    <div className="absolute left-64 bottom-6 text-center w-28 flex flex-col items-center z-10 snap-center">
                       {gameState.gameProgress > 1 ? (
                         <div className="mb-1 flex items-center gap-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8px] font-bold px-1.5 py-0.5 rounded shadow">
                           <Check className="w-2.5 h-2.5 text-emerald-600" /> GELÖST
@@ -492,7 +492,7 @@ export default function App() {
                     </div>
 
                     {/* STATION C: LEVEL 2 STEUERAMT */}
-                    <div className="absolute left-[440px] bottom-6 text-center w-28 flex flex-col items-center z-10">
+                    <div className="absolute left-[440px] bottom-6 text-center w-28 flex flex-col items-center z-10 snap-center">
                       {gameState.gameProgress > 2 ? (
                         <div className="mb-1 flex items-center gap-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8px] font-bold px-1.5 py-0.5 rounded shadow">
                           <Check className="w-2.5 h-2.5 text-emerald-600" /> GELÖST
@@ -511,17 +511,14 @@ export default function App() {
                     </div>
 
                     {/* REPOSITION PLAYER FLAG ON THE GAME BOARD */}
-                    <motion.div 
+                    <div 
                       id="player-flag-overlay" 
-                      animate={{ 
-                        left: gameState.gameProgress === 1 ? 104 : gameState.gameProgress === 2 ? 284 : 464,
-                        bottom: 45
-                      }}
-                      transition={{ type: "spring", stiffness: 80, damping: 14 }}
-                      className="absolute text-3xl z-20 pointer-events-none drop-shadow"
+                      className={`absolute text-3xl z-20 pointer-events-none drop-shadow transition-all duration-500 bottom-[45px] ${
+                        gameState.gameProgress === 1 ? 'left-[16%]' : gameState.gameProgress === 2 ? 'left-[43%]' : 'left-[70%]'
+                      }`}
                     >
                       📍
-                    </motion.div>
+                    </div>
                   </div>
                 </div>
 
@@ -576,6 +573,25 @@ export default function App() {
                     </button>
                     <h1 className="text-xs font-black tracking-widest font-display text-white uppercase select-none">Quest 1: Healthcare-Poker</h1>
                     <p className="text-[9px] text-red-100 font-mono mt-0.5 uppercase tracking-wider">Krankenkassen Franchise-Optimum</p>
+                  </div>
+
+                  {/* Didaktisches Prinzip: Von Gross nach Klein Box */}
+                  <div className="bg-slate-100 border-l-4 border-red-500 rounded-r-xl p-3.5 mb-5 space-y-2 text-[10.5px]">
+                    <div className="font-semibold text-slate-950 uppercase tracking-wider text-[9px] text-red-650 font-mono">
+                      Didaktischer Pfad: KVG Grundversicherung
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">🌍 1. Übergeordneter Kontext (Das Grosse):</span>
+                      Die gesetzliche Krankenkasse (obligatorische Krankenpflegeversicherung) sichert deine finanzielle Existenz in der Schweiz bei Krankheit und Unfall ab. Sie schützt dich vor existenziellen Behandlungs- und Spitalkosten.
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">🛡️ 2. Das spezifische Instrument (Das Mittlere):</span>
+                      Die gesetzliche Grundversicherung (nach KVG) garantiert allen Versicherten die identische medizinische Grundversorgung und ist für alle Einwohner obligatorisch.
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">⚙️ 3. Die Stellschraube (Das Kleine):</span>
+                      Deine wichtigste Stellschraube ist die Franchise (Schweizer Wahlmodelle: CHF 300 vs. CHF 2500). Hiermit steuerst du das Verhältnis von monatlichen festen Prämienzahlungen zu deiner eigenen Kostenbeteiligung im Krankheitsfall.
+                    </div>
                   </div>
 
                   {/* PROFILE SELECTION STEP */}
@@ -720,6 +736,10 @@ export default function App() {
                     </div>
                   </div>
 
+                  <div className="text-[9px] text-center text-slate-500 font-mono italic px-2 leading-tight">
+                    * Die hier gerechneten Krankenkassenprämien sind ein simulierter Schweizer Durchschnittswert (inkl. Unfalldeckung).
+                  </div>
+
                   {/* Financial result badge without any bloated text */}
                   <div className={`py-3 px-4 rounded-xl text-center text-xs font-bold leading-normal border shadow-sm ${l1ResultStats.userIsCheaper ? 'bg-green-100 text-green-900 border-green-200' : 'bg-red-100 text-red-900 border-red-200'}`}>
                     {l1ResultStats.userIsCheaper ? (
@@ -781,34 +801,34 @@ export default function App() {
                     </h1>
                   </div>
 
-                  <p className="text-slate-600 text-[10.5px] mb-4 leading-relaxed text-center px-1">
-                    Zeige, dass du die Didaktik der eidgenössischen Krankenkasse durchdrungen hast, um deine Lizenz freizuschalten.
+                  <p className="text-slate-600 text-[10.5px] mb-4 leading-relaxed text-center px-1 font-sans">
+                    Zeige, dass du die didaktische Logik der Krankenkassen-Franchisen durchdrungen hast, um fortzufahren.
                   </p>
 
                   <h3 className="font-bold text-slate-900 text-xs text-center mb-5 leading-normal bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    Welches Franchise-Szenario schadet dem Schweizer Budget im Ernstfall am meisten?
+                    Welche Franchise-Option ist bei einem geringen Behandlungsrisiko von unter CHF 2'000.- pro Jahr rechnerisch am unvorteilhaftesten?
                   </h3>
 
                   {/* Large tap answer cards options */}
                   <div className="space-y-3">
                     <button 
                       onClick={() => handleAnswerL1Quiz('B')}
-                      className={`quiz-card w-full ${l1QuizAnswer === 'B' ? 'card-active border-red-500' : ''}`}
+                      className={`quiz-card w-full ${l1QuizAnswer === 'B' ? 'card-active' : ''}`}
                     >
-                      <div className="font-semibold text-[11px] text-slate-705">
-                        ❌ Die Franchise 300 zu wählen
+                      <div className="font-semibold text-[11px] text-slate-805">
+                        ❌ Die Wahl der Minimalfranchise von CHF 300 bei voller Gesundheit
                       </div>
                       <p className="text-[9px] text-slate-400 mt-1">
-                        Weil man dort ununterbrochen hohe Prämien zahlt, selbst wenn man komplett gesund bleibt.
+                        Weil man dort ununterbrochen hohe Fixprämien zahlt, selbst wenn man komplett gesund bleibt. Doch dies ist zumindest im Behandlungsfall eine Absicherung.
                       </p>
                     </button>
 
                     <button 
                       onClick={() => handleAnswerL1Quiz('A')}
-                      className={`quiz-card w-full ${l1QuizAnswer === 'A' ? 'card-active border-emerald-500 bg-emerald-50/50' : ''}`}
+                      className={`quiz-card w-full ${l1QuizAnswer === 'A' ? 'card-active-success' : ''}`}
                     >
                       <div className="font-bold text-[11.5px] text-slate-900 text-emerald-950 flex items-center gap-1">
-                        🎯 Wahl einer mittleren Wahlfranchise (z.B. 1000/1500)
+                        🎯 Eine mittlere Wahlfranchise (z.B. CHF 1'000 oder CHF 1'500)
                       </div>
                       <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
                         Man erhält kaum Prämienrabatt durch die Versicherung, trägt aber die ersten CHF 1500.- im Behandlungsfall trotzdem ganz allein. Das BAG rät dringend von diesen Zwischenstufen ab.
@@ -826,7 +846,7 @@ export default function App() {
                       >
                         {l1Feedback.isCorrect ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" /> : <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />}
                         <div>
-                          <strong>{l1Feedback.isCorrect ? 'Grossartig gelöst!' : 'Fehler aufgedeckt:'}</strong>
+                          <strong>{l1Feedback.isCorrect ? 'Ausgezeichnet!' : 'Fehler aufgedeckt:'}</strong>
                           <p className="mt-1">{l1Feedback.text}</p>
                         </div>
                       </motion.div>
@@ -836,13 +856,13 @@ export default function App() {
 
                 <div className="mt-8">
                   <button 
-                    disabled={!l1Feedback?.isCorrect}
+                    disabled={l1QuizAnswer === null}
                     onClick={completeLevel1}
-                    className={`w-full py-3.5 rounded-xl font-bold font-display text-xs text-center transition tracking-wider active:scale-98 ${l1Feedback?.isCorrect 
+                    className={`w-full py-3.5 rounded-xl font-bold font-display text-xs text-center transition tracking-wider active:scale-98 ${l1QuizAnswer !== null 
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer' 
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                   >
-                    {l1Feedback?.isCorrect ? 'Level 1 abschliessen & weitergehen 🗺️' : 'Löse die Boss-frage zum Weitergehen 🔒'}
+                    {l1QuizAnswer !== null ? 'Level 1 abschliessen & weitergehen 🗺' : 'Bitte wähle eine Option aus 🔒'}
                   </button>
                 </div>
               </motion.div>
@@ -868,6 +888,25 @@ export default function App() {
                     </button>
                     <h1 className="text-xs font-black tracking-widest font-display text-white uppercase select-none">Quest 2: Der Steuer-Hack</h1>
                     <p className="text-[9px] text-amber-400 font-mono mt-0.5 uppercase tracking-wider">SÄULE 3A PRIVATE VORSORGE</p>
+                  </div>
+
+                  {/* Didaktisches Prinzip: Von Gross nach Klein Box */}
+                  <div className="bg-slate-100 border-l-4 border-amber-500 rounded-r-xl p-3.5 mb-5 space-y-2 text-[10.5px]">
+                    <div className="font-semibold text-slate-950 uppercase tracking-wider text-[9px] text-amber-600 font-mono">
+                      Didaktischer Pfad: Säule 3a Vorsorge
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">🌍 1. Übergeordneter Kontext (Das Grosse):</span>
+                      Die Säule 3a ist Teil des Schweizer Drei-Säulen-Systems. Sie dient dazu, Vorsorgelücken der staatlichen 1. Säule (AHV/IV) und der beruflichen 2. Säule (Pensionskasse) im Alter zu schliessen, um deinen gewohnten Lebensstandard abzusichern.
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">🏦 2. Das spezifische Instrument (Das Mittlere):</span>
+                      Die gebundene private Selbstvorsorge (Säule 3a) ist ein staatlich gefördertes, steuerlich privilegiertes Instrument zur privaten Altersvorsorge.
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">⚙️ 3. Die Stellschraube (Das Kleine):</span>
+                      Deine Stellschraube ist der Einzahlungsbetrag bis zum gesetzlichen Höchstsatz (aktuell CHF 7'258.- pro Jahr). Jeder eingezahlte Franken wird direkt von deinem steuerbaren Einkommen abgezogen.
+                    </div>
                   </div>
 
                   <h2 className="text-xs font-bold text-slate-800 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
@@ -954,6 +993,12 @@ export default function App() {
                     <p className="text-[9.5px] text-slate-500 leading-relaxed font-sans">
                       Dieser Sparbetrag wird am Jahresende vollumfänglich von deinem steuerpflichtigen Einkommen abgezogen. Du schenkst dem Staat somit kein fiktives Geld!
                     </p>
+                    <div className="mt-2.5 pt-2 border-t border-emerald-200/50 text-[9px] text-slate-500 leading-relaxed font-mono">
+                      Gerechnet mit einem fiktiven, pauschalen Grenzsteuersatz von 15% als konservativer Schweizer Durchschnitt.
+                      <div className="font-bold text-slate-600 mt-1 uppercase tracking-tight">
+                        Hinweis: Deine reale Ersparnis hängt von deinem Wohnkanton und deinem steuerbaren Einkommen ab.
+                      </div>
+                    </div>
                   </div>
 
                   {/* Accurate rules laid by Bundesamt für Sozialversicherungen BSV */}
@@ -1005,7 +1050,7 @@ export default function App() {
                   </div>
 
                   <p className="text-slate-600 text-[10.5px] mb-4 leading-relaxed text-center px-1 font-sans">
-                    Um das Schweizer Spar-Zertifikat zu erhalten, musst du die Bindungsfrist deiner Säule 3a korrekt benennen.
+                    Um das Schweizer Spar-Zertifikat zu erhalten, musst du die Bindungslogik der Säule 3a korrekt benennen.
                   </p>
 
                   <h3 className="font-bold text-slate-950 text-xs text-center mb-5 leading-normal bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -1015,25 +1060,25 @@ export default function App() {
                   <div className="space-y-3">
                     <button 
                       onClick={() => handleAnswerL2Quiz('A')}
-                      className={`quiz-card w-full ${l2QuizAnswer === 'A' ? 'card-active border-red-500' : ''}`}
+                      className={`quiz-card w-full ${l2QuizAnswer === 'A' ? 'card-active' : ''}`}
                     >
                       <div className="font-semibold text-[11px] text-slate-805">
-                        ❌ Jederzeit bei liquidem Engpass
+                        ❌ Bei einem kurzfristigen Liquiditätsengpass
                       </div>
                       <p className="text-[9px] text-slate-400 mt-1">
-                        Wenn ich dringend Luxussneaker, eine Kreditkartenschuld decken, oder neue Ferien finanzieren muss.
+                        Wenn ich dringend Kreditkarten decken oder den alltäglichen privaten Konsum finanzieren will. Dies ist gesetzlich nicht gestattet.
                       </p>
                     </button>
 
                     <button 
                       onClick={() => handleAnswerL2Quiz('B')}
-                      className={`quiz-card w-full ${l2QuizAnswer === 'B' ? 'card-active border-emerald-500 bg-emerald-50/50' : ''}`}
+                      className={`quiz-card w-full ${l2QuizAnswer === 'B' ? 'card-active-success' : ''}`}
                     >
                       <div className="font-bold text-[11.5px] text-slate-900 text-emerald-950 flex items-center gap-1">
-                        🎯 Nur für gesetzlich verankerte Lebensereignisse
+                        🎯 Nur für gesetzlich verankerte Zwecke (BSV)
                       </div>
                       <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
-                        Wohneigentumsförderung (WEG) für ein selbstbewohntes Eigenheim, Aufnahme einer selbstständigen Erwerbstätigkeit, oder endgültige Auswanderung aus der Schweiz.
+                        Zur Förderung von selbstbewohntem Wohneigentum (WEG), bei Aufnahme einer selbstständigen Erwerbstätigkeit, oder bei definitiver Auswanderung aus der Schweiz.
                       </p>
                     </button>
                   </div>
@@ -1058,13 +1103,13 @@ export default function App() {
 
                 <div className="mt-8">
                   <button 
-                    disabled={!l2Feedback?.isCorrect}
+                    disabled={l2QuizAnswer === null}
                     onClick={completeLevel2}
-                    className={`w-full py-3.5 rounded-xl font-bold font-display text-xs text-center transition tracking-wider active:scale-98 ${l2Feedback?.isCorrect 
+                    className={`w-full py-3.5 rounded-xl font-bold font-display text-xs text-center transition tracking-wider active:scale-98 ${l2QuizAnswer !== null 
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow cursor-pointer' 
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                   >
-                    {l2Feedback?.isCorrect ? 'Spiel beenden & Zertifikat entladen 🏆' : 'Beantworte das Quiz zum Beenden 🔒'}
+                    {l2QuizAnswer !== null ? 'Spiel beenden & Zertifikat freischalten 🏆' : 'Bitte wähle eine Option aus 🔒'}
                   </button>
                 </div>
               </motion.div>
@@ -1119,44 +1164,228 @@ export default function App() {
 
                   {/* FORM FEEDBACK REGISTER */}
                   {isSubmitted ? (
-                    <div className="bg-emerald-950/50 border border-emerald-500/40 rounded-xl p-4 mt-2">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-1.5" />
-                      <p className="text-xs text-green-300 font-bold">Zertifikat reserviert!</p>
-                      <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
-                        Wir haben dich vorgemerkt und benachrichtigen dich gratis, sobald **Level 3 (Mietkaution & Versicherungs-Hacks)** gelauncht wird!
+                    <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-5 mt-2 text-left space-y-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <h4 className="font-bold text-xs text-white uppercase tracking-wider">
+                          Feedback übermittelt! 🇨🇭
+                        </h4>
+                      </div>
+                      <p className="text-[10px] text-slate-300 leading-relaxed">
+                        Vielen Dank für deine wertvolle Rückmeldung und die Stimmabgabe für die nächste Version! Deine Antworten wurden sicher für Timo aufbereitet.
+                      </p>
+                      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-1.5 font-mono text-[9px] text-slate-400">
+                        <span className="font-bold text-slate-200 uppercase tracking-tight block border-b border-slate-800 pb-1 mb-1">Übertragene Daten:</span>
+                        <div>• Hilft begreifen: <span className="text-slate-250 font-bold">{helpsUnderstand === 'ja' ? 'Ja 👍' : 'Nein 👎'}</span></div>
+                        <div>• Weitere Levels: <span className="text-slate-250 font-bold">{wantsMoreLevels === 'ja' ? 'Ja 👍' : 'Nein 👎'}</span></div>
+                        <div>• Empfehlung: <span className="text-slate-250 font-bold">{wouldRecommend === 'ja' ? 'Ja 👍' : 'Nein 👎'}</span></div>
+                        <div className="mt-1 pb-1">
+                          • Gewählte Themen: 
+                          <span className="text-slate-200 block pl-2 mt-0.5 whitespace-pre-line">
+                            {votedTopics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+                          </span>
+                        </div>
+                        {userEmail && <div className="border-t border-slate-800 pt-1">• E-Mail: <span className="text-slate-300">{userEmail}</span></div>}
+                      </div>
+                      <p className="text-[9.5px] text-amber-300 italic text-center font-semibold leading-snug">
+                        🔔 Wir benachrichtigen dich gratis, sobald neue Kapitel gelauncht werden!
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-left">
-                      <h4 className="font-bold text-xs text-amber-400 mb-1 text-center">
-                        Nächste Levels anfordern ✉️
-                      </h4>
-                      <p className="text-[10px] text-slate-400 text-center leading-normal mb-3.5">
-                        Trage deine E-Mail ein, um Updates zu Mietkautionen, Säule 3b und weiteren Schweizer Finanzthemen zu erhalten.
-                      </p>
-                      <form 
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          setIsSubmitted(true);
-                          playChimeSound('success');
-                        }}
-                        className="space-y-2"
-                      >
+                    <div className="bg-slate-950/80 p-5 rounded-xl border border-slate-800 text-left space-y-4">
+                      <div className="text-center">
+                        <h4 className="font-bold text-xs text-amber-400 mb-1">
+                          Gefällt dir die App? Feedback & Umfrage 📝
+                        </h4>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Hilf uns, die Schweizer Finanzbildung zu verbessern und nimm an der Abstimmung teil.
+                        </p>
+                      </div>
+
+                      {/* FEEDBACK SYSTEM - MANDATORY YES/NO QUESTIONS */}
+                      <div className="space-y-3 pt-1 border-t border-slate-800/60">
+                        {/* Q1 */}
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-semibold text-slate-200 leading-snug">
+                            1. Die App hilft mir Adulting Themen zu begreifen. <span className="text-red-500">*</span>
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              type="button" 
+                              onClick={() => { setHelpsUnderstand('ja'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${helpsUnderstand === 'ja' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Ja 👍
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => { setHelpsUnderstand('nein'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${helpsUnderstand === 'nein' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Nein 👎
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Q2 */}
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-semibold text-slate-200 leading-snug">
+                            2. Ich wünsche mir weitere Levels. <span className="text-red-500">*</span>
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              type="button" 
+                              onClick={() => { setWantsMoreLevels('ja'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${wantsMoreLevels === 'ja' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Ja 👍
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => { setWantsMoreLevels('nein'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${wantsMoreLevels === 'nein' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Nein 👎
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Q3 */}
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-semibold text-slate-200 leading-snug">
+                            3. Ich würde diese App Freunden empfehlen. <span className="text-red-500">*</span>
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              type="button" 
+                              onClick={() => { setWouldRecommend('ja'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${wouldRecommend === 'ja' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Ja 👍
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => { setWouldRecommend('nein'); playChimeSound('click'); }}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-[10.5px] font-bold border transition duration-200 ${wouldRecommend === 'nein' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              Nein 👎
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* TOPICS SELECTION (Choose up to 3) */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                        <div className="flex justify-between items-center">
+                          <p className="text-[10px] font-bold text-amber-300">
+                            Wähle Wunschthemen für Level 3+ (max. 3):
+                          </p>
+                          <span className="text-[9px] font-mono font-bold bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                            {votedTopics.length} / 3
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-slate-400 leading-tight">
+                          Stimme ab, welche 3 Schweizer Themen in der nächsten Spielversion gelauncht werden sollen.
+                        </p>
+                        
+                        <div className="space-y-1.5 mt-1">
+                          {AVAILABLE_TOPICS.map((topic) => {
+                            const isSelected = votedTopics.includes(topic);
+                            const isMaxReached = votedTopics.length >= 3;
+                            return (
+                              <button
+                                key={topic}
+                                type="button"
+                                onClick={() => {
+                                  playChimeSound('click');
+                                  if (isSelected) {
+                                    setVotedTopics(votedTopics.filter(t => t !== topic));
+                                  } else {
+                                    if (!isMaxReached) {
+                                      setVotedTopics([...votedTopics, topic]);
+                                    }
+                                  }
+                                }}
+                                disabled={!isSelected && isMaxReached}
+                                className={`w-full text-left p-2 rounded-lg border text-[10px] transition duration-200 flex items-center justify-between gap-2.5 ${
+                                  isSelected 
+                                    ? 'bg-blue-950/30 border-blue-500/70 text-blue-200' 
+                                    : isMaxReached 
+                                      ? 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+                                      : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                                }`}
+                              >
+                                <span className="font-sans text-[10px]">{topic}</span>
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition ${
+                                  isSelected ? 'bg-blue-600 border-blue-400 text-white' : 'border-slate-600 bg-slate-950'
+                                }`}>
+                                  {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* EMAIL INPUT */}
+                      <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
+                        <p className="text-[10px] font-semibold text-slate-200">
+                          Deine E-Mail für Beta-Einladungen (optional)
+                        </p>
                         <input 
                           type="email"
-                          required
                           value={userEmail}
                           onChange={(e) => setUserEmail(e.target.value)}
-                          placeholder="Deine E-Mail-Adresse"
-                          className="w-full bg-slate-800 text-white placeholder-slate-500 border border-slate-700 rounded-lg px-3 py-2.5 text-xs focus:ring-1 focus:ring-red-500 outline-none"
+                          placeholder="z.B. user@web.ch"
+                          className="w-full bg-slate-900 text-white placeholder-slate-500 border border-slate-800 rounded-lg px-3 py-2 text-[10.5px] focus:ring-1 focus:ring-blue-500 outline-none"
                         />
-                        <button 
-                          type="submit"
-                          className="w-full bg-red-600 hover:bg-red-700 text-white hover:text-white text-xs font-bold py-2.5 rounded-lg active:scale-95 transition cursor-pointer"
-                        >
-                          Sende mir neue Schweizer Quests!
-                        </button>
-                      </form>
+                      </div>
+
+                      {/* ACTIONS BAR */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                        {helpsUnderstand && wantsMoreLevels && wouldRecommend ? (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const bodyText = `Hallo Timo,\n\nHier ist mein Feedback zur Schweizer Adulting App:\n--------------------------------------------------------\n1. Hilft mir beim Begreifen: ${helpsUnderstand === 'ja' ? 'JA' : 'NEIN'}\n2. Wünsche mir weitere Levels: ${wantsMoreLevels === 'ja' ? 'JA' : 'NEIN'}\n3. Empfehle die App an Freunde: ${wouldRecommend === 'ja' ? 'JA' : 'NEIN'}\n\nAusgewählte Top 3 Wunschthemen für die nächste Version:\n${votedTopics.length > 0 ? votedTopics.map((t, idx) => `  - ${t}`).join('\n') : '  - Keine Themen ausgewählt'}\n\nAbsender E-Mail: ${userEmail || 'Keine E-Mail angegeben'}\n--------------------------------------------------------\nGesendet aus der Adulting App.`;
+                                window.location.href = `mailto:timo.bueschlen@gmail.com?subject=${encodeURIComponent("Adulting App Feedback & Stimme")}&body=${encodeURIComponent(bodyText)}`;
+                                setIsSubmitted(true);
+                                playChimeSound('success');
+                              }}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg active:scale-98 transition flex items-center justify-center gap-1.5 text-xs shadow-md cursor-pointer"
+                            >
+                              <Send className="w-3.5 h-3.5" /> Feedback per E-Mail absenden 🚀
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const bodyText = `Adulting App - Schweizer Finanzspiel Feedback & Abstimmung\n--------------------------------------------------------\n1. Hilft mir beim Begreifen: ${helpsUnderstand === 'ja' ? 'JA' : 'NEIN'}\n2. Wünsche mir weitere Levels: ${wantsMoreLevels === 'ja' ? 'JA' : 'NEIN'}\n3. Empfehle die App an Freunde: ${wouldRecommend === 'ja' ? 'JA' : 'NEIN'}\n\nAusgewählte Top 3 Wunschthemen für die nächste Version:\n${votedTopics.length > 0 ? votedTopics.map((t, idx) => `  - ${t}`).join('\n') : '  - Keine Themen ausgewählt'}\n\nAbsender E-Mail: ${userEmail || 'Keine E-Mail angegeben'}\n--------------------------------------------------------`;
+                                navigator.clipboard.writeText(bodyText).then(() => {
+                                  setIsCopied(true);
+                                  setIsSubmitted(true);
+                                  playChimeSound('success');
+                                  setTimeout(() => setIsCopied(false), 3000);
+                                }).catch(() => {
+                                  setIsSubmitted(true);
+                                });
+                              }}
+                              className="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold py-2 px-4 rounded-lg active:scale-98 transition flex items-center justify-center gap-1.5 text-[10.5px] cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3 text-slate-400" /> {isCopied ? 'In die Zwischenablage kopiert! 📋' : 'In Zwischenablage kopieren & abschliessen 📋'}
+                            </button>
+                            <p className="text-[8.5px] text-slate-500 text-center leading-normal">
+                              Tipp: Falls das E-Mail-Programm nicht automatisch startet, klicke auf "Zwischenablage kopieren" und sende die kopierte Zusammenfassung an timo.bueschlen@gmail.com.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center text-slate-500 text-[10px] flex items-center justify-center gap-1.5">
+                            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span>Bitte beantworte die 3 Fragen (*), um dein Feedback abzusenden.</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 

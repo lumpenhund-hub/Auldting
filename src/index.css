@@ -28,9 +28,9 @@
 }
 
 .poker-card.card-active {
-  border: 3px solid #dc2626 !important;
-  background-color: #fef2f2 !important;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+  border: 3px solid #2563eb !important;
+  background-color: #eff6ff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
 }
 
 .poker-grid-card {
@@ -49,9 +49,9 @@
 }
 
 .poker-grid-card.card-active {
-  border: 3px solid #dc2626 !important;
-  background-color: #fef2f2 !important;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+  border: 3px solid #2563eb !important;
+  background-color: #eff6ff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
 }
 
 .quiz-card {
@@ -71,9 +71,15 @@
 }
 
 .quiz-card.card-active {
-  border: 3px solid #dc2626 !important;
-  background-color: #fef2f2 !important;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+  border: 3px solid #2563eb !important;
+  background-color: #eff6ff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.quiz-card.card-active-success {
+  border: 3px solid #059669 !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.08);
 }
 
 /* Custom scroll bar behavior for the game board */
